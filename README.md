@@ -32,9 +32,15 @@ chemiso/
     make_fig{2,3a,3b,4,5,6,7}.m   reproduces each published figure
   scripts/
     run_all_CdS_O2.m          entry point, runs the full pipeline
+    fit_GdCoO3_global.m       titration-variant global fit, GdCoO3 + CO/C3H8
+    fit_ZnAl2O4_titulacion.m  titration-variant fit, ZnAl2O4 + C3H8 (static series)
 ```
 
 `core/chemisorption_eq.m` takes a `par` struct (material/gas parameters) and a pressure sweep `Pset` (atm), and returns the equilibrium band-bending `Vs_eq`, total/charged/neutral surface coverage, and `EC_EF` for each pressure. Extending `chemiso` to a new material/gas system requires only a new preset file returning a `par` struct — the core solver does not need to change.
+
+## Titration-model extension (GdCoO3, ZnAl2O4)
+
+`scripts/fit_GdCoO3_global.m` and `scripts/fit_ZnAl2O4_titulacion.m` implement a titration variant of the isotherm — for a reducing gas consuming a fixed, pre-adsorbed O⁻ reservoir rather than a single gas in continuous equilibrium — built on the same electroneutrality machinery without modifying `chemisorption_eq.m`. Each script is self-contained (literal published response data, `fminsearch` global fit, no external dependencies beyond base MATLAB) and reproduces the fit reported in the accompanying SoftwareX paper's Impact section, including the response data sources (Gildo-Ortiz et al. 2019 for GdCoO3; Guillén-Bonilla et al. 2021 for ZnAl2O4).
 
 ## Validation
 
