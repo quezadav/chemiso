@@ -1,6 +1,6 @@
 # chemiso
 
-An open MATLAB implementation of the Wolkenstein/Rothschild chemisorption model for metal-oxide gas sensors, validated against published reference outputs.
+An open MATLAB implementation of the Wolkenstein/Rothschild chemisorption model for semiconductor gas sensors, validated against published reference outputs.
 
 `chemiso` implements the chemisorption isotherm theory of Wolkenstein (1991), quantitatively formalized by Rothschild, Komem & Ashkenasy (2002) for oxygen chemisorption on CdS. It solves the surface/space-charge electroneutrality condition `Qs(Vs,P) = Qsc(Vs)` by direct grid search rather than symbolic solving, and reproduces the six published figures (Figs. 2–7) of the reference paper.
 
