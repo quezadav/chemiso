@@ -60,7 +60,7 @@ Validated against published reference outputs for all six figures of Rothschild 
 
 ## Requirements
 
-MATLAB (tested on R2024b/R2025a). No additional toolboxes required.
+MATLAB (tested on R2026a). No additional toolboxes required.
 
 ## Citation
 
