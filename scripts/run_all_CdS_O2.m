@@ -4,16 +4,18 @@
 %
 %  This main script organizes the execution of the modules needed to
 %  compute and plot Figures 2 through 7 of the Rothschild article.
-%  Make sure the ./core, ./presets and ./figures folders are on the path.
+%  Paths are resolved relative to this script's own location, so it runs
+%  correctly regardless of the caller's current working directory.
 % =========================================================================
 
-clear; clc;
-addpath('./core', './presets', './figures');
+clc;
+here = fileparts(mfilename('fullpath'));
+addpath(fullfile(here,'..','core'), fullfile(here,'..','presets'), fullfile(here,'..','figures'));
 
 % -------------------------------------------------------------------------
 % Load base parameters for the CdS/O2 system defined in presets
 % -------------------------------------------------------------------------
-par = load_CdS_O2();  % file: ./presets/load_CdS_O2.m
+par = load_CdS_O2();  % file: ../presets/load_CdS_O2.m
 
 % -------------------------------------------------------------------------
 % Run the script for each figure (Fig. 2 through Fig. 7)

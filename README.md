@@ -26,6 +26,8 @@ or simply run `scripts/run_all_CdS_O2.m`.
 chemiso/
   core/
     chemisorption_eq.m       material-agnostic core solver
+    wolkenstein_setup.m      shared: Vs sweep, Qsc(Vs), EC_EF, beta0
+    wolkenstein_qs.m         shared: Qs(Vs,P) curve
   presets/
     load_CdS_O2.m             13 parameters, Table I of Rothschild et al. (2002)
   figures/
@@ -39,7 +41,7 @@ chemiso/
     test_grid_convergence.m   grid-resolution sensitivity of Vs_eq and Theta^-
 ```
 
-`core/chemisorption_eq.m` takes a `par` struct (material/gas parameters) and a pressure sweep `Pset` (atm), and returns the equilibrium band-bending `Vs_eq`, total/charged/neutral surface coverage, and `EC_EF` for each pressure. Extending `chemiso` to a new material/gas system requires only a new preset file returning a `par` struct — the core solver does not need to change.
+`core/chemisorption_eq.m` takes a `par` struct (material/gas parameters) and a pressure sweep `Pset` (atm), and returns the equilibrium band-bending `Vs_eq`, total/charged/neutral surface coverage, and `EC_EF` for each pressure. Extending `chemiso` to a new material/gas system requires only a new preset file returning a `par` struct — the core solver does not need to change. Internally, `chemisorption_eq.m` and `figures/make_fig2.m` (the only figure that needs the full Qsc(Vs)/Qs(Vs,P) curves rather than just the equilibrium point) share the same underlying physics via `core/wolkenstein_setup.m` and `core/wolkenstein_qs.m`, instead of each reimplementing it.
 
 ## Titration-model extension (GdCoO3, ZnAl2O4)
 
@@ -64,8 +66,9 @@ MATLAB (tested on R2026a). No additional toolboxes required.
 
 ## Citation
 
-If you use `chemiso` in your work, please cite the accompanying SoftwareX paper (details to be added once published) and the original theoretical references:
+If you use `chemiso` in your work, please cite the accompanying SoftwareX paper (details to be added once published), the software itself, and the original theoretical references:
 
+- V.-M. Quezada-Navarro, V.-M. Rodríguez-Betancourtt, `chemiso`, Zenodo. doi:[10.5281/zenodo.22777370](https://doi.org/10.5281/zenodo.22777370) (concept DOI, always resolves to the latest version).
 - T. Wolkenstein, *Electronic Processes on Semiconductor Surfaces During Chemisorption*, Springer US, 1991.
 - A. Rothschild, Y. Komem, N. Ashkenasy, "Quantitative evaluation of chemisorption processes on semiconductors," J. Appl. Phys. 92(12), 7090–7097 (2002).
 
