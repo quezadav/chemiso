@@ -32,28 +32,32 @@ dev = max(abs(th_tot - (th_m+th_0)));
 % ---------------------------------------------------------------------
 % Test 2: Vs_eq at the Fig. 3a reference point (P=1 atm, ND=1e16, T=300K)
 % Expected value verified directly against this shipped code
-% (v1.0.3, 400-point grid) on 2026-09-15: 0.688722 eV.
+% (v1.0.6, 400-pt coarse grid + local refinement) on 2026-09-15:
+% 0.688322 eV. The plain 400-pt grid (v1.0.3-v1.0.5, no refinement)
+% gave 0.688722 eV; the 40000-pt brute-force reference is 0.688307 eV
+% -- the refined value is within 2e-5 eV of brute force, vs 4e-4 eV
+% for the unrefined grid (see 15-09-26-c110 in the collaboration
+% bitacora for the full before/after table and derivation).
 % Tolerance: 1e-4 eV -- checks reproducibility of THIS computation
-% across MATLAB versions/platforms, not absolute grid accuracy (the
-% grid itself only resolves Vs to ~1.2/399 = 0.003 eV, see
-% test_grid_convergence.m for that separate question).
+% across MATLAB versions/platforms, not absolute grid accuracy.
 % ---------------------------------------------------------------------
 par = base; par.ND = 1e16; par.T = 300;
 Pset3a = logspace(-13,0,13);
 [Vs_eq,~,~,~] = chemisorption_eq(par, Pset3a);
-[n_pass,n_fail] = check('Fig.3a Vs_eq(P=1atm,ND=1e16)', Vs_eq(end), 0.688722, 1e-4, n_pass, n_fail);
+[n_pass,n_fail] = check('Fig.3a Vs_eq(P=1atm,ND=1e16)', Vs_eq(end), 0.688322, 1e-4, n_pass, n_fail);
 
 % ---------------------------------------------------------------------
 % Test 3: Fig. 4 slopes d(eV_s)/d(log10 P) at kT=300/400/500K.
-% Expected values verified directly against this shipped code on
-% 2026-09-15: 0.057744 / 0.075188 / 0.093233.
-% Tolerance 1e-4: same reproducibility rationale as Test 2. Separately
-% verified (test_grid_convergence.m) that these slopes are stable to
-% <0.4% under 10x grid refinement, so this is also a reasonable
-% physical-accuracy check, not just a regression one.
+% Expected values verified directly against this shipped code
+% (v1.0.6, refined solver) on 2026-09-15: 0.057609 / 0.074672 /
+% 0.092819. (v1.0.3-v1.0.5, unrefined 400-pt grid: 0.057744 / 0.075188
+% / 0.093233 -- refinement shifts these by <0.7%, consistent with the
+% <0.4% grid-convergence bound already measured in
+% test_grid_convergence.m for the unrefined solver.)
+% Tolerance 1e-4: reproducibility check, same rationale as Test 2.
 % ---------------------------------------------------------------------
 T_list = [300 400 500];
-expected_slopes = [0.057744, 0.075188, 0.093233];
+expected_slopes = [0.057609, 0.074672, 0.092819];
 Pset4 = logspace(-10,0,11); logP4 = log10(Pset4);
 for k = 1:numel(T_list)
     par = base; par.T = T_list(k);
@@ -71,21 +75,22 @@ end
 % ---------------------------------------------------------------------
 % Test 4: Fig. 5b Theta^- saturation (P=1atm, T=300K), ND=1e14/1e16/1e18.
 % Expected values verified directly against this shipped code
-% (v1.0.3, 400-point grid) on 2026-09-15: 2.044647e-05 / 1.995532e-04 /
-% 2.183927e-03. NOTE: these do NOT match the values previously printed
-% in the paper's draft (2.05e-5/2.05e-4/2.18e-3) -- that discrepancy was
-% found and the paper corrected; see 15-09-26-c105 in the collaboration
-% bitacora. Theta^- depends exponentially on Vs_eq, so it is far more
-% sensitive to grid resolution than Vs_eq itself (verified: -5.5%/+1.6%/
-% -3.5% shift between 400 and 40000 grid points -- see
-% test_grid_convergence.m). Tolerance here is loose (1%) precisely
-% because this quantity is known to be numerically sensitive; it is a
-% regression check against this exact shipped grid, not a claim of
-% high absolute accuracy.
+% (v1.0.6, 400-pt coarse grid + local refinement) on 2026-09-15:
+% 1.939543e-05 / 2.026602e-04 / 2.110836e-03. The 40000-pt brute-force
+% reference is 1.938042e-05 / 2.027786e-04 / 2.110665e-03 -- the refined
+% values agree with brute force to <0.1%, vs the plain 400-pt grid
+% (v1.0.3-v1.0.5: 2.044647e-05 / 1.995532e-04 / 2.183927e-03), which
+% was off by -5.1%/+1.6%/-3.4%. This was the numerical issue review2
+% flagged (per-point error from the fixed 400-pt default); see
+% 15-09-26-c110 in the collaboration bitacora. Theta^- depends
+% exponentially on Vs_eq, so it remains more sensitive to residual grid
+% error than Vs_eq itself even after refinement -- tolerance here stays
+% loose (1%) as a regression check against this exact shipped code, not
+% a claim of higher absolute accuracy than the refinement provides.
 % ---------------------------------------------------------------------
 Pset5 = logspace(-10,0,11);
 ND_list = [1e14 1e16 1e18];
-expected_thm = [2.044647e-05, 1.995532e-04, 2.183927e-03];
+expected_thm = [1.939543e-05, 2.026602e-04, 2.110836e-03];
 for i = 1:numel(ND_list)
     par = base; par.ND = ND_list(i); par.T = 300;
     [~,~,thm,~] = chemisorption_eq(par, Pset5);

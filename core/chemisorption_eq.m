@@ -23,10 +23,15 @@ function [Vs_eq, theta_tot, theta_minus, theta_zero, EC_EF] = chemisorption_eq(p
 %
 %  METHOD
 %  ------
-%  • Sweep Vs (0→1.2 eV) and compute Q_sc(Vs) and Q_s(Vs,P) --- via the
-%    shared helpers wolkenstein_setup.m / wolkenstein_qs.m, also used by
-%    figures/make_fig2.m.
-%  • Take the Vs whose |Q_s| best matches Q_sc.
+%  • Sweep Vs (0→1.2 eV) on a coarse 400-point grid and compute Q_sc(Vs)
+%    and Q_s(Vs,P) --- via the shared helpers wolkenstein_setup.m /
+%    wolkenstein_qs.m, also used by figures/make_fig2.m.
+%  • Take the coarse-grid Vs whose |Q_s| best matches Q_sc, then refine
+%    locally: re-evaluate |Q_sc-|Q_s|| on a 400-point grid spanning the
+%    two neighboring coarse intervals around that minimum and take its
+%    minimum instead. This keeps the cost of the coarse sweep (one
+%    401-point residual evaluation per pressure point) while resolving
+%    Vs_eq to a local grid spacing of ~1.2/400^2 eV instead of 1.2/400.
 % ========================================================================
 
 [Vs_grid, Qsc_tab, EC_EF, beta0, kT_eV] = wolkenstein_setup(par);
@@ -41,9 +46,17 @@ for ip = 1:N
     P  = Pset(ip);
     Qs_vec = wolkenstein_qs(par, Vs_grid, EC_EF, beta0, kT_eV, P);
 
-    % ---- Vs_eq via minimum of |Q_sc - |Q_s|| ----
+    % ---- Vs_eq via minimum of |Q_sc - |Q_s|| : coarse grid ... ----
     [~,idx] = min(abs(abs(Qs_vec) - Qsc_tab));
-    Vs_star = Vs_grid(idx);          % e|V_s|  (eV)
+
+    % ---- ... then local refinement around the coarse minimum ----
+    lo = Vs_grid(max(idx-1,1));
+    hi = Vs_grid(min(idx+1,numel(Vs_grid)));
+    Vs_fine  = linspace(lo, hi, 400);
+    Qsc_fine = wolkenstein_qsc(par, Vs_fine);
+    Qs_fine  = wolkenstein_qs(par, Vs_fine, EC_EF, beta0, kT_eV, P);
+    [~,idxf] = min(abs(abs(Qs_fine) - Qsc_fine));
+    Vs_star  = Vs_fine(idxf);        % e|V_s|  (eV)
     Vs_eq(ip) = Vs_star;
 
     % ---- Coverages at Vs_star ----

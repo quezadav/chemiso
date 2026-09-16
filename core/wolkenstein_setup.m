@@ -6,6 +6,8 @@ function [Vs_grid, Qsc_tab, EC_EF, beta0, kT_eV] = wolkenstein_setup(par)
 %  chemisorption_eq.m (core solver) and figures/make_fig2.m: the surface
 %  band-bending sweep Vs_grid, the space-charge curve Qsc(Vs), the bulk
 %  Fermi-level position (E_C^b-E_F), and the isotherm prefactor beta0.
+%  Qsc(Vs) itself is evaluated via wolkenstein_qsc.m, the same helper
+%  chemisorption_eq.m calls again on its fine local-refinement window.
 %
 %  INPUTS
 %  ------
@@ -22,7 +24,6 @@ function [Vs_grid, Qsc_tab, EC_EF, beta0, kT_eV] = wolkenstein_setup(par)
 
 q    = 1.602176634e-19;   % C
 kB   = 1.380649e-23;      % J K^-1
-eps0 = 8.854187817e-12;   % F m^-1
 h    = 6.62607015e-34;    % J s
 m0   = 9.10938356e-31;    % kg
 
@@ -39,7 +40,5 @@ beta0 = (par.sticking*par.s0_m2)/(par.nu0*sqrt(2*pi*par.M_gas*kB*T)) ...
         * exp(par.q0/kT_eV) * 101325;               % Pa^-1 -> atm^-1
 
 Vs_grid = linspace(0,1.2,400);                      % eV
-epsS    = par.eps_r*eps0;
-ND_m3   = par.ND*1e6;
-Qsc_tab = sqrt(2*epsS*ND_m3*q.*Vs_grid)*1e-4;       % C cm^-2
+Qsc_tab = wolkenstein_qsc(par, Vs_grid);            % C cm^-2
 end

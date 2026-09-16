@@ -25,8 +25,9 @@ or simply run `scripts/run_all_CdS_O2.m`.
 ```
 chemiso/
   core/
-    chemisorption_eq.m       material-agnostic core solver
+    chemisorption_eq.m       core solver (grid search + local refinement)
     wolkenstein_setup.m      shared: Vs sweep, Qsc(Vs), EC_EF, beta0
+    wolkenstein_qsc.m        shared: Qsc(Vs) formula
     wolkenstein_qs.m         shared: Qs(Vs,P) curve
   presets/
     load_CdS_O2.m             13 parameters, Table I of Rothschild et al. (2002)
@@ -41,7 +42,7 @@ chemiso/
     test_grid_convergence.m   grid-resolution sensitivity of Vs_eq and Theta^-
 ```
 
-`core/chemisorption_eq.m` takes a `par` struct (material/gas parameters) and a pressure sweep `Pset` (atm), and returns the equilibrium band-bending `Vs_eq`, total/charged/neutral surface coverage, and `EC_EF` for each pressure. Extending `chemiso` to a new material/gas system requires only a new preset file returning a `par` struct — the core solver does not need to change. Internally, `chemisorption_eq.m` and `figures/make_fig2.m` (the only figure that needs the full Qsc(Vs)/Qs(Vs,P) curves rather than just the equilibrium point) share the same underlying physics via `core/wolkenstein_setup.m` and `core/wolkenstein_qs.m`, instead of each reimplementing it.
+`core/chemisorption_eq.m` takes a `par` struct (material/gas parameters) and a pressure sweep `Pset` (atm), and returns the equilibrium band-bending `Vs_eq`, total/charged/neutral surface coverage, and `EC_EF` for each pressure. It locates `Vs_eq` via a coarse 400-point grid search over `||Qs|-Qsc||`, then refines that estimate on a 400-point grid local to the two neighboring coarse intervals. Extending `chemiso` to a new semiconductor/gas system governed by the same non-dissociative Wolkenstein formulation requires only a new preset file returning a `par` struct — the core solver does not need to change. Internally, `chemisorption_eq.m` and `figures/make_fig2.m` (the only figure that needs the full Qsc(Vs)/Qs(Vs,P) curves rather than just the equilibrium point) share the same underlying physics via `core/wolkenstein_setup.m`, `core/wolkenstein_qsc.m` and `core/wolkenstein_qs.m`, instead of each reimplementing it.
 
 ## Titration-model extension (GdCoO3, ZnAl2O4)
 
@@ -49,7 +50,7 @@ chemiso/
 
 ## Testing
 
-`tests/test_chemiso.m` is a regression suite: coverage conservation (`theta_tot = theta_minus + theta_zero`) and known Vs_eq/Fig.4-slope/Fig.5b-saturation values against this exact shipped code. `tests/test_grid_convergence.m` quantifies how sensitive each output is to the core solver's fixed grid resolution (400 points, 0-1.2 eV, no residual tolerance or convergence check): `Vs_eq` is stable to <0.4% under 10x grid refinement, but `Theta^-`/`Theta^0` — which depend exponentially on `Vs_eq` — shift by up to ~5.5% over the same refinement. Run both with:
+`tests/test_chemiso.m` is a regression suite: coverage conservation (`theta_tot = theta_minus + theta_zero`) and known Vs_eq/Fig.4-slope/Fig.5b-saturation values against this exact shipped code. `tests/test_grid_convergence.m` quantifies how sensitive each output is to the coarse base-grid size (200/400/800 points) of the grid-search-with-refinement scheme: every output tested (`Vs_eq`, the Fig.4 slopes, `Theta^-`) is independent of the coarse base-grid size to within 0.05%. (Before the local-refinement step was added, the plain unrefined grid was far more sensitive: `Theta^-`/`Theta^0` — which depend exponentially on `Vs_eq` — shifted by up to ~5.5% between a 400- and a 40,000-point unrefined grid; that finding motivated adding refinement.) Run both with:
 
 ```
 matlab -batch "run('tests/test_chemiso.m')"
@@ -58,7 +59,7 @@ matlab -batch "run('tests/test_grid_convergence.m')"
 
 ## Validation
 
-Validated against published reference outputs for all six figures of Rothschild et al. (2002), including a quantitative match of the predicted 2.3kT activation-energy slope (Fig. 4) to within ~1%. See the accompanying paper (`SoftwareX_paper/`) for details, including a known numerical-sensitivity caveat for coverage quantities (Table 1 footnote there).
+Validated against published reference outputs for all six figures of Rothschild et al. (2002), including a quantitative match of the predicted d(eV_s)/dlog10(P) ≈ 2.3kT pressure dependence (Fig. 4) to within ~1%. See the accompanying paper (`SoftwareX_paper/`) for details, including the grid-search-with-refinement scheme's numerical behavior (Table 1 footnote there).
 
 ## Requirements
 
