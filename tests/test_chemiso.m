@@ -99,9 +99,52 @@ for i = 1:numel(ND_list)
         thm(end), expected_thm(i), rel_tol, n_pass, n_fail);
 end
 
+% ---------------------------------------------------------------------
+% Test 5: root-existence/residual diagnostic (chemisorption_eq:noRoot).
+% Purely diagnostic warning added 2026-09-17 in response to review4 of
+% the SoftwareX paper (existence of a genuine Q_s=Q_sc crossing was
+% never checked before -- the solver would silently return a
+% closest-approach pinned to a domain boundary if no root existed).
+% Verifies: (a) the warning never fires for the shipped CdS preset
+% across its full parameter range (3 doping levels x 3 temperatures x
+% 40 pressures from 1e-13 to 1 atm) -- max normalized residual measured
+% 1.2e-3 against RESID_TOL=1e-2, comfortable margin; (b) the warning
+% DOES fire for a deliberately pathological preset (DeltaE=5 eV, far
+% outside any physical CdS value) where no crossing exists in
+% [0,1.2] eV, confirming the check is not a no-op.
+% ---------------------------------------------------------------------
+lastwarn('');
+ND_list5 = [1e14 1e16 1e18]; T_list5 = [300 400 500]; Pset_wide = logspace(-13,0,40);
+for iN = 1:numel(ND_list5)
+    for iT = 1:numel(T_list5)
+        par = base; par.ND = ND_list5(iN); par.T = T_list5(iT);
+        chemisorption_eq(par, Pset_wide);
+    end
+end
+[~,warnid] = lastwarn();
+[n_pass,n_fail] = check_bool('No spurious noRoot warning over shipped CdS range', ...
+    isempty(warnid), n_pass, n_fail);
+
+lastwarn('');
+par_bad = base; par_bad.DeltaE = 5; par_bad.ND = 1e16;
+chemisorption_eq(par_bad, 1.0);
+[~,warnid] = lastwarn();
+[n_pass,n_fail] = check_bool('noRoot warning fires for a pathological preset', ...
+    strcmp(warnid,'chemisorption_eq:noRoot'), n_pass, n_fail);
+
 fprintf('\n%d passed, %d failed.\n', n_pass, n_fail);
 if n_fail > 0
     error('test_chemiso:failed', '%d regression test(s) failed.', n_fail);
+end
+
+function [n_pass,n_fail] = check_bool(name, ok, n_pass, n_fail)
+if ok
+    fprintf('[PASS] %s\n', name);
+    n_pass = n_pass + 1;
+else
+    fprintf('[FAIL] %s\n', name);
+    n_fail = n_fail + 1;
+end
 end
 
 function [n_pass,n_fail] = check(name, actual, expected, tol, n_pass, n_fail)

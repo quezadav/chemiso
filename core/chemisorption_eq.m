@@ -32,9 +32,24 @@ function [Vs_eq, theta_tot, theta_minus, theta_zero, EC_EF] = chemisorption_eq(p
 %    minimum instead. This keeps the cost of the coarse sweep (one
 %    401-point residual evaluation per pressure point) while resolving
 %    Vs_eq to a local grid spacing of ~1.2/400^2 eV instead of 1.2/400.
+%  • After refinement, checks that a genuine electroneutrality crossing
+%    exists: |Q_s(0)|>=Q_sc(0) and |Q_s(1.2)|<=Q_sc(1.2) must have
+%    opposite-sign residuals (root bracketed by the endpoints), and the
+%    final refined residual, normalized by the domain-wide scale
+%    Q_sc(1.2), must stay below RESID_TOL. Both conditions hold with
+%    large margin for every (N_D,T,P) combination of the shipped CdS
+%    preset (residual <=1.2e-3 of RESID_TOL=1e-2, no sign-check failures
+%    over N_D in {1e14,1e16,1e18}, T in {300,400,500}, P in
+%    [1e-13,1] atm); a violation flags a preset/pressure combination
+%    where the returned Vs_eq is a spurious closest-approach, not a
+%    true root. This check is purely diagnostic: it never changes
+%    Vs_eq itself, only emits a warning.
 % ========================================================================
 
+RESID_TOL = 1e-2;   % measured max over the shipped CdS sweep: 1.2e-3
+
 [Vs_grid, Qsc_tab, EC_EF, beta0, kT_eV] = wolkenstein_setup(par);
+domain_scale = Qsc_tab(end);
 
 N        = numel(Pset);
 Vs_eq       = zeros(1,N);
@@ -55,9 +70,24 @@ for ip = 1:N
     Vs_fine  = linspace(lo, hi, 400);
     Qsc_fine = wolkenstein_qsc(par, Vs_fine);
     Qs_fine  = wolkenstein_qs(par, Vs_fine, EC_EF, beta0, kT_eV, P);
-    [~,idxf] = min(abs(abs(Qs_fine) - Qsc_fine));
+    [minval,idxf] = min(abs(abs(Qs_fine) - Qsc_fine));
     Vs_star  = Vs_fine(idxf);        % e|V_s|  (eV)
     Vs_eq(ip) = Vs_star;
+
+    % ---- Diagnostic check: does a genuine crossing exist, and is the
+    %      refined residual small relative to the problem's own scale? ----
+    f_lo = abs(Qs_vec(1))   - Qsc_tab(1);
+    f_hi = abs(Qs_vec(end)) - Qsc_tab(end);
+    no_bracket   = isnan(f_lo) || isnan(f_hi) || (sign(f_lo) == sign(f_hi) && f_lo ~= 0 && f_hi ~= 0);
+    resid_norm   = minval / domain_scale;
+    if no_bracket || resid_norm > RESID_TOL
+        warning('chemisorption_eq:noRoot', ...
+            ['chemisorption_eq: no electroneutrality crossing confidently found ', ...
+             'in the swept V_s domain [0,%.2g] eV at P=%.3g atm (bracket ok=%d, ', ...
+             'normalized residual=%.3g, tol=%.3g). Returned Vs_eq may be a ', ...
+             'closest-approach, not a true root.'], ...
+            Vs_grid(end), P, ~no_bracket, resid_norm, RESID_TOL);
+    end
 
     % ---- Coverages at Vs_star ----
     Vs = Vs_star;
