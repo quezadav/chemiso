@@ -101,36 +101,49 @@ end
 
 % ---------------------------------------------------------------------
 % Test 5: root-existence/residual diagnostic (chemisorption_eq:noRoot).
-% Purely diagnostic warning added 2026-09-17 in response to review4 of
-% the SoftwareX paper (existence of a genuine Q_s=Q_sc crossing was
-% never checked before -- the solver would silently return a
-% closest-approach pinned to a domain boundary if no root existed).
-% Verifies: (a) the warning never fires for the shipped CdS preset
-% across its full parameter range (3 doping levels x 3 temperatures x
-% 40 pressures from 1e-13 to 1 atm) -- max normalized residual measured
-% 1.2e-3 against RESID_TOL=1e-2, comfortable margin; (b) the warning
-% DOES fire for a deliberately pathological preset (DeltaE=5 eV, far
-% outside any physical CdS value) where no crossing exists in
-% [0,1.2] eV, confirming the check is not a no-op.
+% Diagnostic added 2026-09-17 in response to review4 of the SoftwareX
+% paper (existence of a genuine Q_s=Q_sc crossing was never checked
+% before -- the solver would silently return a closest-approach pinned
+% to a domain boundary if no root existed). Since 2026-09-17 (v1.0.8,
+% response to review6), a failed diagnostic also sets Vs_eq and all
+% three coverages to NaN, not just a warning -- review6 correctly
+% flagged that a caller not inspecting warnings could otherwise treat
+% the closest-approach value as a valid equilibrium.
+% Verifies: (a) the warning never fires, and Vs_eq is never NaN, for
+% the shipped CdS preset across its full parameter range (3 doping
+% levels x 3 temperatures x 40 pressures from 1e-13 to 1 atm) -- max
+% normalized residual measured 1.2e-3 against RESID_TOL=1e-2,
+% comfortable margin; (b) the warning fires AND Vs_eq/coverages are
+% NaN for a deliberately pathological preset (DeltaE=5 eV, far outside
+% any physical CdS value) where no crossing exists in [0,1.2] eV,
+% confirming the check is not a no-op.
 % ---------------------------------------------------------------------
 lastwarn('');
 ND_list5 = [1e14 1e16 1e18]; T_list5 = [300 400 500]; Pset_wide = logspace(-13,0,40);
+any_nan = false;
 for iN = 1:numel(ND_list5)
     for iT = 1:numel(T_list5)
         par = base; par.ND = ND_list5(iN); par.T = T_list5(iT);
-        chemisorption_eq(par, Pset_wide);
+        [Vs_eq5,th_tot5,th_m5,th_05] = chemisorption_eq(par, Pset_wide);
+        any_nan = any_nan || any(isnan(Vs_eq5)) || any(isnan(th_tot5)) ...
+                  || any(isnan(th_m5)) || any(isnan(th_05));
     end
 end
 [~,warnid] = lastwarn();
 [n_pass,n_fail] = check_bool('No spurious noRoot warning over shipped CdS range', ...
     isempty(warnid), n_pass, n_fail);
+[n_pass,n_fail] = check_bool('No NaN outputs over shipped CdS range', ...
+    ~any_nan, n_pass, n_fail);
 
 lastwarn('');
 par_bad = base; par_bad.DeltaE = 5; par_bad.ND = 1e16;
-chemisorption_eq(par_bad, 1.0);
+[Vs_eq_bad,th_tot_bad,th_m_bad,th_0_bad] = chemisorption_eq(par_bad, 1.0);
 [~,warnid] = lastwarn();
 [n_pass,n_fail] = check_bool('noRoot warning fires for a pathological preset', ...
     strcmp(warnid,'chemisorption_eq:noRoot'), n_pass, n_fail);
+[n_pass,n_fail] = check_bool('Vs_eq/coverages are NaN for a pathological preset', ...
+    isnan(Vs_eq_bad) && isnan(th_tot_bad) && isnan(th_m_bad) && isnan(th_0_bad), ...
+    n_pass, n_fail);
 
 fprintf('\n%d passed, %d failed.\n', n_pass, n_fail);
 if n_fail > 0

@@ -15,10 +15,11 @@ function [Vs_eq, theta_tot, theta_minus, theta_zero, EC_EF] = chemisorption_eq(p
 %
 %  OUTPUTS
 %  -------
-%  Vs_eq       : [1×N]  equilibrium e|V_s|  (eV)
-%  theta_tot   : [N×1]  total coverage
-%  theta_minus : [N×1]  charged coverage
-%  theta_zero  : [N×1]  neutral coverage
+%  Vs_eq       : [1×N]  equilibrium e|V_s|  (eV); NaN at any pressure
+%                       where the root-existence diagnostic below fails
+%  theta_tot   : [N×1]  total coverage; NaN where Vs_eq is NaN
+%  theta_minus : [N×1]  charged coverage; NaN where Vs_eq is NaN
+%  theta_zero  : [N×1]  neutral coverage; NaN where Vs_eq is NaN
 %  EC_EF       : scalar (E_C^b - E_F), eV — for Fig. 7 (E_act = EC_EF + e|Vs|)
 %
 %  METHOD
@@ -41,9 +42,12 @@ function [Vs_eq, theta_tot, theta_minus, theta_zero, EC_EF] = chemisorption_eq(p
 %    preset (residual <=1.2e-3 of RESID_TOL=1e-2, no sign-check failures
 %    over N_D in {1e14,1e16,1e18}, T in {300,400,500}, P in
 %    [1e-13,1] atm); a violation flags a preset/pressure combination
-%    where the returned Vs_eq is a spurious closest-approach, not a
-%    true root. This check is purely diagnostic: it never changes
-%    Vs_eq itself, only emits a warning.
+%    where the closest-approach found on the grid is not a true root.
+%    In that case Vs_eq and all three coverages are returned as NaN
+%    (changed from v1.0.7, which returned the numeric closest-approach
+%    unflagged in the return value, distinguishable only by catching
+%    the warning) so that a caller who does not inspect warnings still
+%    cannot mistake a failed diagnostic for a valid equilibrium.
 % ========================================================================
 
 RESID_TOL = 1e-2;   % measured max over the shipped CdS sweep: 1.2e-3
@@ -72,7 +76,6 @@ for ip = 1:N
     Qs_fine  = wolkenstein_qs(par, Vs_fine, EC_EF, beta0, kT_eV, P);
     [minval,idxf] = min(abs(abs(Qs_fine) - Qsc_fine));
     Vs_star  = Vs_fine(idxf);        % e|V_s|  (eV)
-    Vs_eq(ip) = Vs_star;
 
     % ---- Diagnostic check: does a genuine crossing exist, and is the
     %      refined residual small relative to the problem's own scale? ----
@@ -80,25 +83,34 @@ for ip = 1:N
     f_hi = abs(Qs_vec(end)) - Qsc_tab(end);
     no_bracket   = isnan(f_lo) || isnan(f_hi) || (sign(f_lo) == sign(f_hi) && f_lo ~= 0 && f_hi ~= 0);
     resid_norm   = minval / domain_scale;
-    if no_bracket || resid_norm > RESID_TOL
+    root_ok      = ~no_bracket && resid_norm <= RESID_TOL;
+    if ~root_ok
         warning('chemisorption_eq:noRoot', ...
             ['chemisorption_eq: no electroneutrality crossing confidently found ', ...
              'in the swept V_s domain [0,%.2g] eV at P=%.3g atm (bracket ok=%d, ', ...
-             'normalized residual=%.3g, tol=%.3g). Returned Vs_eq may be a ', ...
-             'closest-approach, not a true root.'], ...
+             'normalized residual=%.3g, tol=%.3g). Vs_eq and coverages set to ', ...
+             'NaN for this point.'], ...
             Vs_grid(end), P, ~no_bracket, resid_norm, RESID_TOL);
     end
 
-    % ---- Coverages at Vs_star ----
-    Vs = Vs_star;
-    fA_minus = 1 / (1 + par.gA*exp((EC_EF + Vs - par.DeltaE)/kT_eV));
-    num = 1 + (1/par.gA)*exp((par.DeltaE - EC_EF - Vs)/kT_eV);
-    den = 1 + (1/par.gA)*exp(-(EC_EF + Vs)/kT_eV);
-    beta  = beta0 * num / den;
-    theta = (beta*P)/(1 + beta*P);
+    % ---- Vs_eq and coverages: NaN if the diagnostic above failed ----
+    if root_ok
+        Vs_eq(ip) = Vs_star;
+        Vs = Vs_star;
+        fA_minus = 1 / (1 + par.gA*exp((EC_EF + Vs - par.DeltaE)/kT_eV));
+        num = 1 + (1/par.gA)*exp((par.DeltaE - EC_EF - Vs)/kT_eV);
+        den = 1 + (1/par.gA)*exp(-(EC_EF + Vs)/kT_eV);
+        beta  = beta0 * num / den;
+        theta = (beta*P)/(1 + beta*P);
 
-    theta_tot(ip)   = theta;
-    theta_minus(ip) = theta * fA_minus;
-    theta_zero(ip)  = theta * (1 - fA_minus);
+        theta_tot(ip)   = theta;
+        theta_minus(ip) = theta * fA_minus;
+        theta_zero(ip)  = theta * (1 - fA_minus);
+    else
+        Vs_eq(ip)       = NaN;
+        theta_tot(ip)   = NaN;
+        theta_minus(ip) = NaN;
+        theta_zero(ip)  = NaN;
+    end
 end
 end
